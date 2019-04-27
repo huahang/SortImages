@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,21 @@ func checkError(err error) error {
 	if err != nil {
 		fmt.Printf("[Error] Hit an error! " + err.Error() + "\n")
 	}
+	return err
+}
+
+func CopyFile(dstName, srcName string) (err error) {
+	src, err := os.Open(srcName)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	dst, err := os.OpenFile(dstName, os.O_WRONLY | os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+	_, err = io.Copy(dst, src)
 	return err
 }
 
@@ -40,7 +56,7 @@ func main() {
 			ext := strings.ToLower(filepath.Ext(path))
 			filename := filepath.Base(path)
 			if jpegExtensions[ext] {
-				err = os.Rename(path, "./JPG/" + filename)
+				err = CopyFile("./JPG/" + filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
@@ -48,7 +64,7 @@ func main() {
 				return nil
 			}
 			if rawExtensions[ext] {
-				err = os.Rename(path, "./RAW/" + filename)
+				err = CopyFile("./RAW/" + filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
