@@ -40,6 +40,8 @@ func main() {
 	_ = checkError(err)
 	err = os.MkdirAll("./RAW", 0755)
 	_ = checkError(err)
+	err = os.MkdirAll("./MP4", 0755)
+	_ = checkError(err)
 	var jpegExtensions = make(map[string]bool)
 	jpegExtensions[".jpg"] = true
 	jpegExtensions[".jpeg"] = true
@@ -48,6 +50,8 @@ func main() {
 	rawExtensions[".dng"] = true
 	rawExtensions[".orf"] = true
 	rawExtensions[".arw"] = true
+	var mp4Extensions = make(map[string]bool)
+	rawExtensions[".mp4"] = true
 	_ = filepath.Walk(args[1], func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return checkError(err)
@@ -65,6 +69,14 @@ func main() {
 			}
 			if rawExtensions[ext] {
 				err = CopyFile("./RAW/" + filename, path)
+				err = checkError(err)
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+			if mp4Extensions[ext] {
+				err = CopyFile("./MP4/" + filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
