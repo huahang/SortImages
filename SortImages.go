@@ -51,7 +51,7 @@ func main() {
 	rawExtensions[".orf"] = true
 	rawExtensions[".arw"] = true
 	var mp4Extensions = make(map[string]bool)
-	rawExtensions[".mp4"] = true
+	mp4Extensions[".mp4"] = true
 	_ = filepath.Walk(args[1], func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return checkError(err)
