@@ -42,6 +42,10 @@ func main() {
 	_ = checkError(err)
 	err = os.MkdirAll("./MP4", 0755)
 	_ = checkError(err)
+	err = os.MkdirAll("./HEIC", 0755)
+	_ = checkError(err)
+	err = os.MkdirAll("./Unknown", 0755)
+	_ = checkError(err)
 	var jpegExtensions = make(map[string]bool)
 	jpegExtensions[".jpg"] = true
 	jpegExtensions[".jpeg"] = true
@@ -52,6 +56,8 @@ func main() {
 	rawExtensions[".arw"] = true
 	var mp4Extensions = make(map[string]bool)
 	mp4Extensions[".mp4"] = true
+	var heicExtensions = make(map[string]bool)
+	heicExtensions[".heic"] = true
 	_ = filepath.Walk(args[1], func(path string, info os.FileInfo, err error) error {
 		if os.IsPermission(err) {
 			fmt.Printf("[Warning] No permission: " + path + "\n")
@@ -70,17 +76,29 @@ func main() {
 					return err
 				}
 				return nil
-			}
-			if rawExtensions[ext] {
+			} else if rawExtensions[ext] {
 				err = CopyFile("./RAW/" + filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
 				}
 				return nil
-			}
-			if mp4Extensions[ext] {
+			} else if mp4Extensions[ext] {
 				err = CopyFile("./MP4/" + filename, path)
+				err = checkError(err)
+				if err != nil {
+					return err
+				}
+				return nil
+			} else if heicExtensions[ext] {
+				err = CopyFile("./HEIC/" + filename, path)
+				err = checkError(err)
+				if err != nil {
+					return err
+				}
+				return nil
+			} else {
+				err = CopyFile("./Unknown/" + filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
