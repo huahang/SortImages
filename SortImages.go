@@ -15,13 +15,13 @@ func checkError(err error) error {
 	return err
 }
 
-func CopyFile(dstName, srcName string) (err error) {
+func copyFile(dstName, srcName string) (err error) {
 	src, err := os.Open(srcName)
 	if err != nil {
 		return err
 	}
 	defer src.Close()
-	dst, err := os.OpenFile(dstName, os.O_WRONLY | os.O_CREATE, 0644)
+	dst, err := os.OpenFile(dstName, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
@@ -58,6 +58,7 @@ func main() {
 	mp4Extensions[".mp4"] = true
 	var heicExtensions = make(map[string]bool)
 	heicExtensions[".heic"] = true
+	heicExtensions[".heif"] = true
 	_ = filepath.Walk(args[1], func(path string, info os.FileInfo, err error) error {
 		if os.IsPermission(err) {
 			fmt.Printf("[Warning] No permission: " + path + "\n")
@@ -70,35 +71,35 @@ func main() {
 			ext := strings.ToLower(filepath.Ext(path))
 			filename := filepath.Base(path)
 			if jpegExtensions[ext] {
-				err = CopyFile("./JPG/" + filename, path)
+				err = copyFile("./JPG/"+filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
 				}
 				return nil
 			} else if rawExtensions[ext] {
-				err = CopyFile("./RAW/" + filename, path)
+				err = copyFile("./RAW/"+filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
 				}
 				return nil
 			} else if mp4Extensions[ext] {
-				err = CopyFile("./MP4/" + filename, path)
+				err = copyFile("./MP4/"+filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
 				}
 				return nil
 			} else if heicExtensions[ext] {
-				err = CopyFile("./HEIC/" + filename, path)
+				err = copyFile("./HEIC/"+filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
 				}
 				return nil
 			} else {
-				err = CopyFile("./Unknown/" + filename, path)
+				err = copyFile("./Unknown/"+filename, path)
 				err = checkError(err)
 				if err != nil {
 					return err
@@ -108,5 +109,4 @@ func main() {
 		}
 		return nil
 	})
-
 }
