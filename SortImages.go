@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +16,10 @@ func checkError(err error) error {
 	return err
 }
 
-func copyFile(dstName, srcName string) (err error) {
+func copyFile(dstName, srcName string, move bool) (err error) {
+	if move {
+		return os.Rename(srcName, dstName)
+	}
 	src, err := os.Open(srcName)
 	if err != nil {
 		return err
@@ -31,8 +35,10 @@ func copyFile(dstName, srcName string) (err error) {
 }
 
 func main() {
-	args := os.Args
-	if len(args) != 2 {
+	move := flag.Bool("m", false, "move files")
+	flag.Parse()
+	args := flag.Args()
+	if len(args) != 1 {
 		fmt.Printf("Usage: SortImages [path to scan]\n")
 		return
 	}
@@ -59,7 +65,7 @@ func main() {
 	var heicExtensions = make(map[string]bool)
 	heicExtensions[".heic"] = true
 	heicExtensions[".heif"] = true
-	_ = filepath.Walk(args[1], func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(args[0], func(path string, info os.FileInfo, err error) error {
 		if os.IsPermission(err) {
 			fmt.Printf("[Warning] No permission: " + path + "\n")
 			return nil
@@ -71,35 +77,35 @@ func main() {
 			ext := strings.ToLower(filepath.Ext(path))
 			filename := filepath.Base(path)
 			if jpegExtensions[ext] {
-				err = copyFile("./JPG/"+filename, path)
+				err = copyFile("./JPG/"+filename, path, *move)
 				err = checkError(err)
 				if err != nil {
 					return err
 				}
 				return nil
 			} else if rawExtensions[ext] {
-				err = copyFile("./RAW/"+filename, path)
+				err = copyFile("./RAW/"+filename, path, *move)
 				err = checkError(err)
 				if err != nil {
 					return err
 				}
 				return nil
 			} else if mp4Extensions[ext] {
-				err = copyFile("./MP4/"+filename, path)
+				err = copyFile("./MP4/"+filename, path, *move)
 				err = checkError(err)
 				if err != nil {
 					return err
 				}
 				return nil
 			} else if heicExtensions[ext] {
-				err = copyFile("./HEIC/"+filename, path)
+				err = copyFile("./HEIC/"+filename, path, *move)
 				err = checkError(err)
 				if err != nil {
 					return err
 				}
 				return nil
 			} else {
-				err = copyFile("./Unknown/"+filename, path)
+				err = copyFile("./Unknown/"+filename, path, *move)
 				err = checkError(err)
 				if err != nil {
 					return err
