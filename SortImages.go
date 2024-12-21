@@ -65,6 +65,7 @@ func main() {
 	var heicExtensions = make(map[string]bool)
 	heicExtensions[".heic"] = true
 	heicExtensions[".heif"] = true
+	heicExtensions[".hif"] = true
 	_ = filepath.Walk(args[0], func(path string, info os.FileInfo, err error) error {
 		if os.IsPermission(err) {
 			fmt.Printf("[Warning] No permission: " + path + "\n")
@@ -98,6 +99,7 @@ func main() {
 				}
 				return nil
 			} else if heicExtensions[ext] {
+				filename = strings.Split(filename, ".")[0] + ".heic"
 				err = copyFile("./HEIC/"+filename, path, *move)
 				err = checkError(err)
 				if err != nil {
