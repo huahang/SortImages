@@ -60,6 +60,7 @@ func main() {
 	rawExtensions[".dng"] = true
 	rawExtensions[".orf"] = true
 	rawExtensions[".arw"] = true
+	rawExtensions[".3fr"] = true
 	var mp4Extensions = make(map[string]bool)
 	mp4Extensions[".mp4"] = true
 	var heicExtensions = make(map[string]bool)
