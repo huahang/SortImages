@@ -214,14 +214,17 @@ func placeFile(dir, filename, srcPath string) (placed string, err error) {
 	ext := filepath.Ext(filename)
 	base := fitBaseName(strings.TrimSuffix(filename, ext), ext)
 	for i := 0; i < archiveMaxDedup; i++ {
-		// 第 0 轮用原名，之后才带序号，这样绝大多数文件的落地名与原名一致。
-		// 原名本身就超长时也要用截短过的，否则第 0 轮必然触发 ENAMETOOLONG。
-		name := filename
-		if i > 0 || len(filename) > archiveMaxNameBytes {
-			name = base + ext
-		}
-		if i > 0 {
+		// 三种情形互斥：带序号的候选、原名本身超长（否则第 0 轮必然触发 ENAMETOOLONG）、
+		// 以及最常见的直接用原名。写成 switch 而不是层层 if，是为了让将来调整任何一支时
+		// 不必再去推演它与其他分支的交叠。
+		var name string
+		switch {
+		case i > 0:
 			name = fmt.Sprintf("%s-%d%s", base, i, ext)
+		case len(filename) > archiveMaxNameBytes:
+			name = base + ext
+		default:
+			name = filename
 		}
 		candidate := filepath.Join(dir, name)
 		dstInfo, statErr := os.Lstat(candidate)
@@ -775,9 +778,9 @@ func sameContent(a, b string) (bool, error) {
 // archiveFile 把 path 按拍摄日期额外备份到 Archive/YYYY/YYYY-MM/YYYY-MM-DD 下，
 // 文件名保持 filename 原样，不做 HEIC 那样的扩展名改写，以免多点文件名被截短。
 //
-// 备份始终是复制，即使命令行传了 -m 也一样；调用点在归档到分类桶之前，因此 -m 把源文件
-// 移走之后备份依然成立。备份失败会把错误返回给调用方，由调用方中止本轮遍历——这样 -m
-// 模式下不会出现「备份没成功、源文件却已经被移走」的情况。
+// 调用点排在归档到分类桶之前：备份失败会把错误返回给调用方并中止本轮遍历，这样不会留下
+// 「分类桶里已经有了、Archives 却没有备份」的半成品。因为只复制不移动，源目录始终完好，
+// 重跑一次即可补齐。
 //
 // 具体的落地与重名处理交给 placeFile，规则与五个分类桶完全一致：内容一致则跳过（重复运行
 // 因此是幂等的），不一致则依次追加 -1、-2 ……全程 O_EXCL 独占创建，绝不覆盖已有文件。
@@ -804,7 +807,7 @@ func archiveFile(tool *exifTool, path, filename string, kind mediaKind) (placed 
 		return "", err
 	}
 	// 先取源文件大小，供下面的去重比对使用，避免在循环里重复 Stat 同一个文件。
-	// 落地规则与分类桶完全一致，交给 placeFile；备份永远是复制，所以 move 固定传 false。
+	// 落地规则与分类桶完全一致，交给 placeFile。
 	return placeFile(dir, filename, path)
 }
 
@@ -979,15 +982,14 @@ func run() error {
 	heicExtensions[".heic"] = true
 	heicExtensions[".heif"] = true
 	heicExtensions[".hif"] = true
-	// 输出目录如果落在待扫描目录内部（例如 cd ~/Pictures/sorted && SortImages -m ~/Pictures），
-	// Walk 会把刚写好的备份和归档件当成新的源文件再处理一遍：-m 模式下会把备份从 Archive 里
-	// 搬进分类桶，扁平命名再让它们互相覆盖，最终源、桶、Archive 三处都没有那张照片。这里把
-	// 六个输出目录的绝对路径记下来，遍历时整枝剪掉。
+	// 输出目录如果落在待扫描目录内部（例如 cd ~/Pictures/sorted && SortImages ~/Pictures），
+	// Walk 会把刚写好的备份和归档件当成新的源文件再处理一遍：Archives 里的备份会被重新
+	// 分类进 Sorted，凭空多出一堆副本。这里把两个输出根的 FileInfo 记下来，遍历时整枝剪掉。
 	//
 	// 用 os.Stat 记下每个目录的 FileInfo，之后靠 os.SameFile 比较 dev+inode，而不是比较路径
 	// 字符串。字符串比较在这里靠不住：macOS 默认卷大小写不敏感，Work 与 work 是同一个目录却
 	// 是两个字符串；/tmp、/var 这类系统自带的符号链接同样会让两侧拼法不同。一旦剪枝失效，
-	// 遍历就会重新进入输出目录，-m 模式下会把已经归好的文件当成新源文件再处理一遍。
+	// 遍历就会重新进入输出目录，把已经归好的文件当成新源文件再处理一遍。
 	// 本次运行真正新写进 Archive 的文件，结束时打印成树。
 	var added []string
 	var outputDirs []os.FileInfo
@@ -1036,7 +1038,7 @@ func run() error {
 				return nil
 			}
 			if jpegExtensions[ext] {
-				// 先备份再归档：备份读的是源文件，-m 会把源文件移走，顺序反过来就来不及了。
+				// 先备份再归档：备份失败要在动分类桶之前就中止，避免留下「桶里有、Archives 没有」的半成品。
 				// 备份失败直接返回错误中止遍历，宁可停下，也不要在没有备份的情况下动源文件。
 				placed, archiveErr := archiveFile(tool, path, filename, kindPhoto)
 				if err = checkError(archiveErr); err != nil {

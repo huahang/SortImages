@@ -19,7 +19,7 @@ exiftool 是 Perl 脚本，单次启动约 70 ms，逐张调用在上千张照�
 ## 常用命令
 
 ```bash
-go mod download   # 拉取 imagemeta 依赖
+go mod download   # 拉取 tzf 依赖
 go build          # 生成 ./SortImages（已被 gitignore 忽略）
 go vet ./...
 gofmt -l .        # 列出未格式化的文件
@@ -99,9 +99,22 @@ GOBIN="$(go env GOPATH)/bin" go install .
 - 备份失败会把错误返回给 walk 回调，中止本轮遍历，并让进程以非零码退出。因为只复制不移动，重跑一次即可补齐。
 - 只有 Unknown 一类不备份；MP4 类视频与照片一样会备份。
 
+### 双份拷贝是有意为之
+
+命中 JPG / RAW / HEIC / MP4 的文件会被**完整复制两次**：一次进 `Archives`，一次进 `Sorted` 下的桶，两次都以原始文件为源。因此整理 100 GB 素材实际读 200 GB、写 200 GB。
+
+两个根都在 CWD 下、必在同一文件系统（`copyNewFile` 用 `os.Link` 定名本来就依赖这点），所以第二次落地**技术上**可以改成从 `Archives` 里那份 `os.Link` 过去，读写各省一半。目前刻意不这么做：
+
+- 硬链接会让两处共享 inode，任何就地改写（而不是写临时文件再改名）都会同时污染备份。`Archives` 是最后一道保险，不应与工作副本纠缠。
+- 输出目录常位于 OneDrive、iCloud 这类同步盘中，同步客户端对硬链接的处理并不一致，省下的本地 I/O 也换不来上传带宽。
+
+要改成硬链接的话，应当做成显式开关而不是默认行为。
+
 ### 输出
 
-整理结束后 `printArchiveTree` 会把 `Archives` 打印成树。用 `os.ReadDir`（返回已排序）逐层递归，输出确定；不做截断，上万张照片就输出上万行，这是刻意的。
+整理结束后 `printArchiveTree` 会把**本次新增的**备份路径打印成树。它接收 `run()` 收集好的 `added []string`，做 `filepath.Rel` + `sort.Strings` 后交给 `renderTree` 按字符串前缀递归——**不读目录**，因此输出只取决于本次写入了什么。没有新增时打印「本次无新增备份」。
+
+不要改成用 `os.ReadDir` 遍历 `archiveRoot`：`Archives` 跨运行累积，那样会把历次运行的照片一起打印出来。
 
 ### 新增格式
 
